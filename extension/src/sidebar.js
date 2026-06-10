@@ -19,10 +19,14 @@ const sendBtn = document.getElementById("send-btn");
 const roomTitle = document.getElementById("room-title");
 const onlineCountEl = document.getElementById("online-count");
 const errorDisplay = document.getElementById("error-display");
+const minimizeBtn = document.getElementById("minimize-btn");
+const inputArea = document.getElementById("input-area");
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let socket = null;
 let isConnected = false;
+let currentUser = null;
+let isMinimized = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escapeHtml(text) {
@@ -52,23 +56,68 @@ function updateRoomTitle() {
   roomTitle.textContent = `${label}: ${owner}/${repo}`;
 }
 
+function getGitHubAvatarUrl(username) {
+  return `https://github.com/${username}.png`;
+}
+
+// ── Minimize/Maximize ─────────────────────────────────────────────────────────
+function toggleMinimize() {
+  isMinimized = !isMinimized;
+  
+  if (isMinimized) {
+    messagesContainer.classList.add("minimized");
+    inputArea.classList.add("minimized");
+    minimizeBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="18 15 12 9 6 15"></polyline>
+      </svg>
+    `;
+    minimizeBtn.title = "Maximize chat";
+  } else {
+    messagesContainer.classList.remove("minimized");
+    inputArea.classList.remove("minimized");
+    minimizeBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    `;
+    minimizeBtn.title = "Minimize chat";
+    scrollToBottom();
+  }
+}
+
+minimizeBtn.addEventListener("click", toggleMinimize);
+
 // ── Message rendering ─────────────────────────────────────────────────────────
 function addMessageToUI(msg) {
   messagesContainer.querySelector(".status-message.empty")?.remove();
   const el = document.createElement("div");
-  el.className = "message";
+  const isOwn = msg.username === currentUser?.username;
+  el.className = `message-container ${isOwn ? "own" : ""}`;
+  
+  const avatarUrl = getGitHubAvatarUrl(msg.username);
   const time = new Date(msg.created_at).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
+  
   el.innerHTML = `
-    <div class="message-avatar" title="${escapeHtml(msg.username)}">${msg.username.charAt(0).toUpperCase()}</div>
-    <div class="message-content">
-      <div class="message-header">
-        <span class="message-author">${escapeHtml(msg.username)}</span>
-        <span class="message-time">${time}</span>
-      </div>
-      <div class="message-text">${escapeHtml(msg.content)}</div>
+    <div class="message-avatar">
+      <img src="${avatarUrl}" alt="${escapeHtml(msg.username)}" onerror="this.parentElement.classList.add('fallback');this.remove();this.parentElement.textContent='${escapeHtml(msg.username.charAt(0).toUpperCase())}'" />
+    </div>
+    <div class="message-context">
+      <div class="message-bubble">${escapeHtml(msg.content)}</div>
+      <div class="message-time">${time}</div>
+    </div>
+    <div class="message-options">
+      <button class="option-item" title="React">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+          <line x1="15" y1="9" x2="15.01" y2="9"></line>
+        </svg>
+      </button>
     </div>`;
   messagesContainer.appendChild(el);
   scrollToBottom();
@@ -99,7 +148,7 @@ function showNotAuthenticated() {
     <div class="status-message" style="padding:24px;text-align:center;line-height:1.7">
       <div style="font-size:28px;margin-bottom:10px">🔐</div>
       <strong>Sign in to chat</strong><br>
-      <span style="font-size:12px;color:#888">
+      <span style="font-size:12px;color:#8b949e">
         Open the Repo Talk extension popup and sign in with GitHub.
       </span>
     </div>`;
@@ -117,6 +166,14 @@ function getToken() {
   });
 }
 
+function getCurrentUser() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["user"], (result) => {
+      resolve(result.user || null);
+    });
+  });
+}
+
 // ── Socket connection ─────────────────────────────────────────────────────────
 async function connectSocket() {
   socket?.disconnect();
@@ -124,6 +181,8 @@ async function connectSocket() {
   isConnected = false;
 
   const token = await getToken();
+  currentUser = await getCurrentUser();
+  
   if (!token) {
     showNotAuthenticated();
     return;
@@ -219,6 +278,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
       socket?.disconnect();
       showNotAuthenticated();
     }
+  }
+  if (area === "local" && "user" in changes) {
+    currentUser = changes.user.newValue;
   }
 });
 

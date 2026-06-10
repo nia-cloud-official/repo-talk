@@ -36,6 +36,7 @@ const corsOptions = {
     'http://localhost:3001',
     'https://github.com',
     'https://www.github.com',
+    'https://github.com',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

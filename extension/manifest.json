@@ -12,7 +12,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "webRequest"
+    "webRequestAuthProvider",
+    "identity"
   ],
   "host_permissions": [
     "https://github.com/*",

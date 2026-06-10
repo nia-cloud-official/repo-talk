@@ -76,13 +76,14 @@ function injectChatSidebar() {
       style="
         position: fixed;
         right: 0;
-        top: 0;
+        top: 60px;
         width: 380px;
-        height: 100vh;
+        height: calc(100vh - 60px);
         border: none;
         z-index: 999999;
-        background: white;
-        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        background: #0d1117;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+        border-radius: 12px 0 0 12px;
       "
     ></iframe>
   `;

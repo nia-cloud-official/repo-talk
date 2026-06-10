@@ -15,6 +15,9 @@
     );
     el.style.display = "block";
   }
+  function getGitHubAvatarUrl(username) {
+    return `https://github.com/${username}.png`;
+  }
   async function getToken() {
     return new Promise(
       (r) => chrome.storage.local.get(["token"], (s) => r(s.token || null))
@@ -45,7 +48,10 @@
     }
     userName.textContent = user.username;
     userHandle.textContent = `@${user.username}`;
-    userAvatar.src = user.avatar_url || "";
+    const avatarImg = userAvatar.querySelector("img");
+    if (avatarImg) {
+      avatarImg.src = getGitHubAvatarUrl(user.username);
+    }
     show(signedInEl);
   }
   signInBtn?.addEventListener("click", async () => {

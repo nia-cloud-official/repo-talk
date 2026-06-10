@@ -423,6 +423,102 @@
             .message-container {
                 animation: slideIn 0.2s ease-out;
             }
+
+            .floating-button {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                background: var(--primary);
+                box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                z-index: 1000000;
+                border: 3px solid var(--bg);
+            }
+
+            .floating-button:hover {
+                transform: scale(1.1);
+                box-shadow: 0 6px 16px rgba(35, 134, 54, 0.5);
+            }
+
+            .floating-button img {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+            }
+
+            .minimized .sidebar-header,
+            .minimized .messages-container,
+            .minimized .input-area {
+                display: none !important;
+            }
+
+            .reaction-picker {
+                position: absolute;
+                bottom: 100%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 8px;
+                display: flex;
+                gap: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                z-index: 100;
+                display: none;
+            }
+
+            .reaction-picker.show {
+                display: flex;
+            }
+
+            .reaction-btn {
+                font-size: 20px;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 4px;
+                transition: background 0.2s;
+            }
+
+            .reaction-btn:hover {
+                background: var(--border);
+            }
+
+            .message-reactions {
+                display: flex;
+                gap: 4px;
+                margin-top: 4px;
+                flex-wrap: wrap;
+            }
+
+            .reaction {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 2px 8px;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .reaction:hover {
+                background: var(--border);
+            }
+
+            .reaction.reacted {
+                background: rgba(35, 134, 54, 0.2);
+                border-color: var(--primary);
+            }
         </style>
     </head>
     <body>
@@ -461,6 +557,10 @@
                     </svg>
                 </button>
             </div>
+        </div>
+
+        <div class="floating-button" id="floating-button" style="display: none;">
+            <img src="icon48.png" alt="Repo Talk" />
         </div>
 
         <script src="sidebar.js"></script>

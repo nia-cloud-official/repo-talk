@@ -3421,6 +3421,8 @@
   var errorDisplay = document.getElementById("error-display");
   var minimizeBtn = document.getElementById("minimize-btn");
   var inputArea = document.getElementById("input-area");
+  var floatingButton = document.getElementById("floating-button");
+  var sidebarHeader = document.querySelector(".sidebar-header");
   var socket = null;
   var isConnected = false;
   var currentUser = null;
@@ -3452,32 +3454,24 @@
   function toggleMinimize() {
     isMinimized = !isMinimized;
     if (isMinimized) {
-      messagesContainer.classList.add("minimized");
-      inputArea.classList.add("minimized");
-      minimizeBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="18 15 12 9 6 15"></polyline>
-      </svg>
-    `;
-      minimizeBtn.title = "Maximize chat";
+      document.body.classList.add("minimized");
+      floatingButton.style.display = "flex";
+      chrome.runtime.sendMessage({ action: "sidebar-minimized" });
     } else {
-      messagesContainer.classList.remove("minimized");
-      inputArea.classList.remove("minimized");
-      minimizeBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
-    `;
-      minimizeBtn.title = "Minimize chat";
+      document.body.classList.remove("minimized");
+      floatingButton.style.display = "none";
+      chrome.runtime.sendMessage({ action: "sidebar-maximized" });
       scrollToBottom();
     }
   }
   minimizeBtn.addEventListener("click", toggleMinimize);
+  floatingButton.addEventListener("click", toggleMinimize);
   function addMessageToUI(msg) {
     messagesContainer.querySelector(".status-message.empty")?.remove();
     const el = document.createElement("div");
     const isOwn = msg.username === currentUser?.username;
     el.className = `message-container ${isOwn ? "own" : ""}`;
+    el.dataset.messageId = msg.id;
     const avatarUrl = getGitHubAvatarUrl(msg.username);
     const time = new Date(msg.created_at).toLocaleTimeString([], {
       hour: "2-digit",
@@ -3490,9 +3484,10 @@
     <div class="message-context">
       <div class="message-bubble">${escapeHtml(msg.content)}</div>
       <div class="message-time">${time}</div>
+      <div class="message-reactions" id="reactions-${msg.id}"></div>
     </div>
     <div class="message-options">
-      <button class="option-item" title="React">
+      <button class="option-item" title="React" onclick="toggleReactionPicker(${msg.id})">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
@@ -3500,9 +3495,46 @@
           <line x1="15" y1="9" x2="15.01" y2="9"></line>
         </svg>
       </button>
+    </div>
+    <div class="reaction-picker" id="reaction-picker-${msg.id}">
+      <span class="reaction-btn" onclick="addReaction(${msg.id}, '\u{1F44D}')">\u{1F44D}</span>
+      <span class="reaction-btn" onclick="addReaction(${msg.id}, '\u2764\uFE0F')">\u2764\uFE0F</span>
+      <span class="reaction-btn" onclick="addReaction(${msg.id}, '\u{1F602}')">\u{1F602}</span>
+      <span class="reaction-btn" onclick="addReaction(${msg.id}, '\u{1F389}')">\u{1F389}</span>
+      <span class="reaction-btn" onclick="addReaction(${msg.id}, '\u{1F525}')">\u{1F525}</span>
     </div>`;
     messagesContainer.appendChild(el);
     scrollToBottom();
+  }
+  function addReaction(messageId, emoji) {
+    const picker = document.getElementById(`reaction-picker-${messageId}`);
+    if (picker) {
+      picker.classList.remove("show");
+    }
+    if (socket && isConnected) {
+      socket.emit("add_reaction", { message_id: messageId, emoji });
+    }
+  }
+  function updateMessageReactions(messageId, reactions) {
+    const reactionsContainer = document.getElementById(`reactions-${messageId}`);
+    if (!reactionsContainer) return;
+    reactionsContainer.innerHTML = "";
+    const reactionCounts = {};
+    reactions.forEach((r) => {
+      if (!reactionCounts[r.emoji]) {
+        reactionCounts[r.emoji] = { count: 0, users: [] };
+      }
+      reactionCounts[r.emoji].count++;
+      reactionCounts[r.emoji].users.push(r.username);
+    });
+    Object.entries(reactionCounts).forEach(([emoji, data]) => {
+      const reactionEl = document.createElement("div");
+      const hasReacted = data.users.includes(currentUser?.username);
+      reactionEl.className = `reaction ${hasReacted ? "reacted" : ""}`;
+      reactionEl.textContent = `${emoji} ${data.count}`;
+      reactionEl.onclick = () => addReaction(messageId, emoji);
+      reactionsContainer.appendChild(reactionEl);
+    });
   }
   function addStatusMessage(text) {
     const el = document.createElement("div");
@@ -3605,6 +3637,7 @@
     });
     socket.on("user_typing", (d) => showTypingIndicator(d.username));
     socket.on("online_users", (d) => updateOnlineCount(d.count || 0));
+    socket.on("reaction_added", (d) => updateMessageReactions(d.message_id, d.reactions));
   }
   async function sendMessage() {
     const content = messageInput.value.trim();

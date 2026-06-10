@@ -69,9 +69,11 @@ function toggleMinimize() {
   if (isMinimized) {
     document.body.classList.add("minimized");
     floatingButton.style.display = "flex";
+    chrome.runtime.sendMessage({ action: "sidebar-minimized" });
   } else {
     document.body.classList.remove("minimized");
     floatingButton.style.display = "none";
+    chrome.runtime.sendMessage({ action: "sidebar-maximized" });
     scrollToBottom();
   }
 }
@@ -282,6 +284,7 @@ async function connectSocket() {
   });
   socket.on("user_typing", (d) => showTypingIndicator(d.username));
   socket.on("online_users", (d) => updateOnlineCount(d.count || 0));
+  socket.on("reaction_added", (d) => updateMessageReactions(d.message_id, d.reactions));
 }
 
 // ── Send message ──────────────────────────────────────────────────────────────

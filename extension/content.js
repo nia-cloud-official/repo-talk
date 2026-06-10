@@ -84,12 +84,25 @@ function injectChatSidebar() {
         background: #0d1117;
         box-shadow: -4px 0 20px rgba(0,0,0,0.3);
         border-radius: 12px 0 0 12px;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
       "
     ></iframe>
   `;
 
   document.body.appendChild(container);
 }
+
+// Listen for messages from the sidebar via chrome runtime (global listener)
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  const iframe = document.getElementById("github-chat-iframe");
+  if (!iframe) return;
+  
+  if (request.action === "sidebar-minimized") {
+    iframe.style.display = "none";
+  } else if (request.action === "sidebar-maximized") {
+    iframe.style.display = "block";
+  }
+});
 
 // Remove sidebar (called on navigation away from a repo page)
 function removeSidebar() {

@@ -1,12 +1,11 @@
-import { Clerk } from "@clerk/clerk-js";
+// Sidebar — uses our own JWT (fetched from background) for socket auth.
+// No Clerk needed here.
+
 import { io } from "socket.io-client";
 
 const BACKEND_URL = process.env.BACKEND_URL;
-const PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY;
-const EXTENSION_URL = chrome.runtime.getURL(".");
-const SIDEBAR_URL = `${EXTENSION_URL}sidebar.html`;
 
-// ── URL params from content.js ────────────────────────────────────────────────
+// ── URL params ────────────────────────────────────────────────────────────────
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get("roomId");
 const owner = params.get("owner");
@@ -25,14 +24,11 @@ const errorDisplay = document.getElementById("error-display");
 let socket = null;
 let isConnected = false;
 
-// ── Clerk ─────────────────────────────────────────────────────────────────────
-const clerk = new Clerk(PUBLISHABLE_KEY);
-
-// ── Utilities ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
 }
 
 function scrollToBottom() {
@@ -47,8 +43,8 @@ function clearError() {
   errorDisplay.innerHTML = "";
 }
 
-function updateOnlineCount(count) {
-  onlineCountEl.innerHTML = `${count} online<span class="online-indicator"></span>`;
+function updateOnlineCount(n) {
+  onlineCountEl.innerHTML = `${n} online<span class="online-indicator"></span>`;
 }
 
 function updateRoomTitle() {
@@ -56,32 +52,24 @@ function updateRoomTitle() {
   roomTitle.textContent = `${label}: ${owner}/${repo}`;
 }
 
-// ── Message UI ────────────────────────────────────────────────────────────────
-function addMessageToUI(message) {
-  // Clear placeholder if present
-  const placeholder = messagesContainer.querySelector(".status-message.empty");
-  if (placeholder) placeholder.remove();
-
+// ── Message rendering ─────────────────────────────────────────────────────────
+function addMessageToUI(msg) {
+  messagesContainer.querySelector(".status-message.empty")?.remove();
   const el = document.createElement("div");
   el.className = "message";
-  const timestamp = new Date(message.created_at);
-  const timeStr = timestamp.toLocaleTimeString([], {
+  const time = new Date(msg.created_at).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const letter = message.username.charAt(0).toUpperCase();
-
   el.innerHTML = `
-    <div class="message-avatar" title="${escapeHtml(message.username)}">${letter}</div>
+    <div class="message-avatar" title="${escapeHtml(msg.username)}">${msg.username.charAt(0).toUpperCase()}</div>
     <div class="message-content">
       <div class="message-header">
-        <span class="message-author">${escapeHtml(message.username)}</span>
-        <span class="message-time">${timeStr}</span>
+        <span class="message-author">${escapeHtml(msg.username)}</span>
+        <span class="message-time">${time}</span>
       </div>
-      <div class="message-text">${escapeHtml(message.content)}</div>
-    </div>
-  `;
-
+      <div class="message-text">${escapeHtml(msg.content)}</div>
+    </div>`;
   messagesContainer.appendChild(el);
   scrollToBottom();
 }
@@ -95,26 +83,17 @@ function addStatusMessage(text) {
 }
 
 function showTypingIndicator(username) {
-  const existing = messagesContainer.querySelector(".typing-indicator");
-  if (existing) existing.remove();
-
+  messagesContainer.querySelector(".typing-indicator")?.remove();
   const el = document.createElement("div");
   el.className = "typing-indicator";
-  el.innerHTML = `
-    <span>${escapeHtml(username)} is typing</span>
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-  `;
-
+  el.innerHTML = `<span>${escapeHtml(username)} is typing</span>
+    <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>`;
   messagesContainer.appendChild(el);
   scrollToBottom();
-  setTimeout(() => {
-    if (el.parentElement) el.remove();
-  }, 3000);
+  setTimeout(() => el.parentElement && el.remove(), 3000);
 }
 
-// ── Auth gate UI ──────────────────────────────────────────────────────────────
+// ── Auth gate ─────────────────────────────────────────────────────────────────
 function showNotAuthenticated() {
   messagesContainer.innerHTML = `
     <div class="status-message" style="padding:24px;text-align:center;line-height:1.7">
@@ -123,33 +102,35 @@ function showNotAuthenticated() {
       <span style="font-size:12px;color:#888">
         Open the Repo Talk extension popup and sign in with GitHub.
       </span>
-    </div>
-  `;
+    </div>`;
   messageInput.disabled = true;
   sendBtn.disabled = true;
   updateOnlineCount(0);
 }
 
+// ── Token retrieval via background ────────────────────────────────────────────
+function getToken() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: "getToken" }, (response) => {
+      resolve(response?.token || null);
+    });
+  });
+}
+
 // ── Socket connection ─────────────────────────────────────────────────────────
 async function connectSocket() {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-    isConnected = false;
-  }
+  socket?.disconnect();
+  socket = null;
+  isConnected = false;
 
-  const token = await clerk.session?.getToken();
+  const token = await getToken();
   if (!token) {
     showNotAuthenticated();
     return;
   }
 
   messagesContainer.innerHTML = `
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <span>Connecting to chat...</span>
-    </div>
-  `;
+    <div class="loading-state"><div class="spinner"></div><span>Connecting…</span></div>`;
   messageInput.disabled = false;
   sendBtn.disabled = true;
 
@@ -165,66 +146,46 @@ async function connectSocket() {
     isConnected = true;
     socket.emit("join_room", { room_id: roomId });
   });
-
   socket.on("disconnect", () => {
     isConnected = false;
     sendBtn.disabled = true;
     updateOnlineCount(0);
   });
-
-  socket.on("connect_error", () => {
-    showError("Connection error. Retrying...");
-  });
+  socket.on("connect_error", () => showError("Connection error. Retrying…"));
 
   socket.on("room_joined", (data) => {
     clearError();
     messagesContainer.innerHTML = "";
     sendBtn.disabled = false;
-
-    if (data.messages?.length > 0) {
-      data.messages.forEach((msg) => addMessageToUI(msg));
+    if (data.messages?.length) {
+      data.messages.forEach(addMessageToUI);
     } else {
-      const empty = document.createElement("div");
-      empty.className = "status-message empty";
-      empty.textContent = "No messages yet. Start the conversation!";
-      messagesContainer.appendChild(empty);
+      const e = document.createElement("div");
+      e.className = "status-message empty";
+      e.textContent = "No messages yet. Start the conversation!";
+      messagesContainer.appendChild(e);
     }
-
     socket.emit("get_online_users");
   });
 
-  socket.on("error", (data) => {
-    showError(data.message || "An error occurred");
+  socket.on("error", (d) => showError(d.message || "An error occurred"));
+  socket.on("receive_message", (m) => addMessageToUI(m));
+  socket.on("user_joined", (d) => {
+    updateOnlineCount(d.user_count || 0);
+    addStatusMessage(`${d.username} joined`);
   });
-
-  socket.on("receive_message", (message) => {
-    addMessageToUI(message);
+  socket.on("user_left", (d) => {
+    updateOnlineCount(d.user_count || 0);
+    addStatusMessage(`${d.username} left`);
   });
-
-  socket.on("user_joined", (data) => {
-    updateOnlineCount(data.user_count || 0);
-    addStatusMessage(`${data.username} joined the chat`);
-  });
-
-  socket.on("user_left", (data) => {
-    updateOnlineCount(data.user_count || 0);
-    addStatusMessage(`${data.username} left the chat`);
-  });
-
-  socket.on("user_typing", (data) => {
-    showTypingIndicator(data.username);
-  });
-
-  socket.on("online_users", (data) => {
-    updateOnlineCount(data.count || 0);
-  });
+  socket.on("user_typing", (d) => showTypingIndicator(d.username));
+  socket.on("online_users", (d) => updateOnlineCount(d.count || 0));
 }
 
 // ── Send message ──────────────────────────────────────────────────────────────
 async function sendMessage() {
   const content = messageInput.value.trim();
   if (!content || !socket || !isConnected) return;
-
   messageInput.value = "";
   messageInput.style.height = "auto";
   sendBtn.disabled = true;
@@ -249,31 +210,18 @@ messageInput.addEventListener("keydown", (e) => {
 
 sendBtn.addEventListener("click", sendMessage);
 
-// ── Render (called on auth state changes) ─────────────────────────────────────
-async function render() {
-  updateRoomTitle();
-
-  if (clerk.user) {
-    await connectSocket();
-  } else {
-    if (socket) {
-      socket.disconnect();
-      socket = null;
-      isConnected = false;
+// Re-connect if the token changes (user signs in/out while sidebar is open)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && "token" in changes) {
+    if (changes.token.newValue) {
+      connectSocket();
+    } else {
+      socket?.disconnect();
+      showNotAuthenticated();
     }
-    showNotAuthenticated();
   }
-}
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-clerk
-  .load({
-    afterSignOutUrl: SIDEBAR_URL,
-    signInForceRedirectUrl: SIDEBAR_URL,
-    signUpForceRedirectUrl: SIDEBAR_URL,
-    allowedRedirectProtocols: ["chrome-extension:"],
-  })
-  .then(() => {
-    clerk.addListener(render); // re-render on sign-in / sign-out
-    render();
-  });
+updateRoomTitle();
+connectSocket();

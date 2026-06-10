@@ -46609,6 +46609,21 @@ Learn more: https://clerk.com/docs/components/clerk-provider`.trim());
     );
     el.style.display = "block";
   }
+  function showSuccess() {
+    document.body.innerHTML = `
+    <div style="
+      display:flex;flex-direction:column;align-items:center;
+      justify-content:center;height:100vh;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      color:#24292e;gap:12px;
+    ">
+      <div style="font-size:40px">\u2705</div>
+      <strong style="font-size:16px">Signed in!</strong>
+      <span style="color:#666;font-size:13px">You can close this tab.</span>
+    </div>
+  `;
+    setTimeout(() => window.close(), 2e3);
+  }
   function render() {
     if (!clerk.loaded) {
       show(loadingEl);
@@ -46625,29 +46640,17 @@ Learn more: https://clerk.com/docs/components/clerk-provider`.trim());
     }
   }
   if (isAuthTab) {
-    clerk.load({
-      allowedRedirectProtocols: ["chrome-extension:"],
-      signInForceRedirectUrl: AUTH_URL,
-      signUpForceRedirectUrl: AUTH_URL,
-      afterSignInUrl: AUTH_URL,
-      afterSignUpUrl: AUTH_URL
-    }).then(() => {
+    clerk.load({ allowedRedirectProtocols: ["chrome-extension:"] }).then(() => {
       if (clerk.user) {
-        document.body.innerHTML = `
-          <div style="
-            display:flex; flex-direction:column; align-items:center;
-            justify-content:center; height:100vh;
-            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-            color:#24292e; gap:12px;
-          ">
-            <div style="font-size:40px">\u2705</div>
-            <strong style="font-size:16px">Signed in successfully!</strong>
-            <span style="color:#666;font-size:13px">You can close this tab.</span>
-          </div>
-        `;
-        setTimeout(() => window.close(), 2e3);
+        showSuccess();
       } else {
-        clerk.redirectToSignIn({ redirectUrl: AUTH_URL });
+        clerk.openSignIn({
+          afterSignInUrl: AUTH_URL,
+          afterSignUpUrl: AUTH_URL
+        });
+        clerk.addListener(({ user }) => {
+          if (user) showSuccess();
+        });
       }
     });
   } else {

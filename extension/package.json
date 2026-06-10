@@ -7,7 +7,6 @@
     "dev": "node esbuild.config.mjs --watch"
   },
   "dependencies": {
-    "@clerk/clerk-js": "^5.0.0",
     "socket.io-client": "^4.7.2"
   },
   "devDependencies": {

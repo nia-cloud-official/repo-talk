@@ -10,15 +10,7 @@ try {
   process.exit(1);
 }
 
-if (!process.env.CLERK_PUBLISHABLE_KEY) {
-  console.error("ERROR: CLERK_PUBLISHABLE_KEY is missing from .env");
-  process.exit(1);
-}
-
 const define = {
-  "process.env.CLERK_PUBLISHABLE_KEY": JSON.stringify(
-    process.env.CLERK_PUBLISHABLE_KEY,
-  ),
   "process.env.BACKEND_URL": JSON.stringify(
     process.env.BACKEND_URL || "http://localhost:3000",
   ),

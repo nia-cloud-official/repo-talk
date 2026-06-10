@@ -1,21 +1,15 @@
 const BACKEND_URL = process.env.BACKEND_URL;
-const CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY;
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 
 async function login() {
-  if (!CLERK_PUBLISHABLE_KEY) {
-    return { success: false, error: "CLERK_PUBLISHABLE_KEY not configured" };
+  if (!GITHUB_CLIENT_ID) {
+    return { success: false, error: "GITHUB_CLIENT_ID not configured" };
   }
 
   try {
-    // Decode the base64 encoded instance ID from the publishable key
-    // Format: pk_test_[base64_instance_id].[frontend_api_url]
-    const keyParts = CLERK_PUBLISHABLE_KEY.replace('pk_', '').split('.');
-    const encodedInstanceId = keyParts[0];
-    const instanceId = atob(encodedInstanceId);
-    
-    // Use Clerk's hosted authentication page
+    // GitHub OAuth flow for Chrome extensions
     const redirectUrl = chrome.identity.getRedirectURL();
-    const authUrl = `https://${instanceId}/v1/client?after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUrl)}&scope=user:email`;
 
     const responseUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl,
@@ -26,19 +20,19 @@ async function login() {
       throw new Error("Authentication cancelled");
     }
 
-    // Extract the token from the URL
+    // Extract the code from the URL
     const url = new URL(responseUrl);
-    const token = url.searchParams.get("__clerk_jwt") || url.searchParams.get("token") || url.hash.slice(1);
+    const code = url.searchParams.get("code");
 
-    if (!token) {
-      throw new Error("No token received from Clerk");
+    if (!code) {
+      throw new Error("No code received from GitHub");
     }
 
-    // Verify the token with our backend and get our app token
-    const res = await fetch(`${BACKEND_URL}/auth/verify`, {
+    // Send code to backend for token exchange
+    const res = await fetch(`${BACKEND_URL}/auth/github/callback`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ code, redirect_uri: redirectUrl }),
     });
 
     if (!res.ok) {
@@ -46,8 +40,8 @@ async function login() {
       throw new Error(err.error || `Server error ${res.status}`);
     }
 
-    const { token: appToken, user } = await res.json();
-    await chrome.storage.local.set({ token: appToken, user });
+    const { token, user } = await res.json();
+    await chrome.storage.local.set({ token, user });
     return { success: true };
   } catch (err) {
     console.error("Login failed:", err.message);

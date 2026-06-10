@@ -12,10 +12,7 @@
   "host_permissions": [
     "https://github.com/*",
     "https://www.github.com/*",
-    "http://localhost:*/*",
-    "https://*.clerk.accounts.dev/*",
-    "https://*.lcl.dev/*",
-    "https://cdn.jsdelivr.net/*"
+    "http://localhost:*/*"
   ],
   "background": {
     "service_worker": "background.js"

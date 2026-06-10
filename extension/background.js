@@ -1,17 +1,14 @@
 (() => {
   // src/background.js
   var BACKEND_URL = "https://repo-talk.onrender.com";
-  var CLERK_PUBLISHABLE_KEY = "pk_test_aW52aXRpbmctZ2xvd3dvcm0tMjMuY2xlcmsuYWNjb3VudHMuZGV2JA";
+  var GITHUB_CLIENT_ID = "";
   async function login() {
-    if (!CLERK_PUBLISHABLE_KEY) {
-      return { success: false, error: "CLERK_PUBLISHABLE_KEY not configured" };
+    if (!GITHUB_CLIENT_ID) {
+      return { success: false, error: "GITHUB_CLIENT_ID not configured" };
     }
     try {
-      const keyParts = CLERK_PUBLISHABLE_KEY.replace("pk_", "").split(".");
-      const encodedInstanceId = keyParts[0];
-      const instanceId = atob(encodedInstanceId);
       const redirectUrl = chrome.identity.getRedirectURL();
-      const authUrl = `https://accounts.${instanceId}.clerk.accounts.dev/v1/client?after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUrl)}&scope=user:email`;
       const responseUrl = await chrome.identity.launchWebAuthFlow({
         url: authUrl,
         interactive: true
@@ -20,21 +17,21 @@
         throw new Error("Authentication cancelled");
       }
       const url = new URL(responseUrl);
-      const token = url.searchParams.get("__clerk_jwt") || url.searchParams.get("token") || url.hash.slice(1);
-      if (!token) {
-        throw new Error("No token received from Clerk");
+      const code = url.searchParams.get("code");
+      if (!code) {
+        throw new Error("No code received from GitHub");
       }
-      const res = await fetch(`${BACKEND_URL}/auth/verify`, {
+      const res = await fetch(`${BACKEND_URL}/auth/github/callback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ code, redirect_uri: redirectUrl })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Server error ${res.status}`);
       }
-      const { token: appToken, user } = await res.json();
-      await chrome.storage.local.set({ token: appToken, user });
+      const { token, user } = await res.json();
+      await chrome.storage.local.set({ token, user });
       return { success: true };
     } catch (err) {
       console.error("Login failed:", err.message);

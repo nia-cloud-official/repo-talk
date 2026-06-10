@@ -5,7 +5,7 @@ try {
   process.loadEnvFile(".env");
 } catch {
   console.error(
-    "ERROR: .env file not found.\nCopy .env.example to .env and fill in CLERK_PUBLISHABLE_KEY.",
+    "ERROR: .env file not found.\nCopy .env.example to .env and fill in GITHUB_CLIENT_ID.",
   );
   process.exit(1);
 }
@@ -14,8 +14,8 @@ const define = {
   "process.env.BACKEND_URL": JSON.stringify(
     process.env.BACKEND_URL || "http://localhost:3000",
   ),
-  "process.env.CLERK_PUBLISHABLE_KEY": JSON.stringify(
-    process.env.CLERK_PUBLISHABLE_KEY || "",
+  "process.env.GITHUB_CLIENT_ID": JSON.stringify(
+    process.env.GITHUB_CLIENT_ID || "",
   ),
 };
 

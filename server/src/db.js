@@ -22,7 +22,7 @@ function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      clerk_id TEXT UNIQUE NOT NULL,
+      github_id TEXT UNIQUE NOT NULL,
       username TEXT NOT NULL,
       avatar_url TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

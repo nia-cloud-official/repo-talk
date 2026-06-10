@@ -8,9 +8,10 @@
     }
     try {
       const keyParts = CLERK_PUBLISHABLE_KEY.replace("pk_", "").split(".");
-      const instanceId = keyParts[0];
+      const encodedInstanceId = keyParts[0];
+      const instanceId = atob(encodedInstanceId);
       const redirectUrl = chrome.identity.getRedirectURL();
-      const authUrl = `https://accounts.${instanceId}.clerk.accounts.dev/v1/oauth/github?redirect_url=${encodeURIComponent(redirectUrl)}`;
+      const authUrl = `https://accounts.${instanceId}.clerk.accounts.dev/v1/client?after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
       const responseUrl = await chrome.identity.launchWebAuthFlow({
         url: authUrl,
         interactive: true

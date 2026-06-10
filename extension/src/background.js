@@ -7,14 +7,15 @@ async function login() {
   }
 
   try {
-    // Extract the frontend API URL from the publishable key
-    // Format: pk_test_[instance_id].[frontend_api_url]
+    // Decode the base64 encoded instance ID from the publishable key
+    // Format: pk_test_[base64_instance_id].[frontend_api_url]
     const keyParts = CLERK_PUBLISHABLE_KEY.replace('pk_', '').split('.');
-    const instanceId = keyParts[0];
+    const encodedInstanceId = keyParts[0];
+    const instanceId = atob(encodedInstanceId);
     
-    // Use Clerk's OAuth flow for GitHub
+    // Use Clerk's hosted authentication page
     const redirectUrl = chrome.identity.getRedirectURL();
-    const authUrl = `https://accounts.${instanceId}.clerk.accounts.dev/v1/oauth/github?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    const authUrl = `https://${instanceId}/v1/client?after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
 
     const responseUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl,

@@ -1,36 +1,36 @@
-import { createClerkClient } from '@clerk/chrome-extension/client';
-import { io } from 'socket.io-client';
+import { Clerk } from "@clerk/clerk-js";
+import { io } from "socket.io-client";
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = process.env.BACKEND_URL;
 const PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY;
-const EXTENSION_URL = chrome.runtime.getURL('.');
+const EXTENSION_URL = chrome.runtime.getURL(".");
 const SIDEBAR_URL = `${EXTENSION_URL}sidebar.html`;
 
 // ── URL params from content.js ────────────────────────────────────────────────
-const params  = new URLSearchParams(window.location.search);
-const roomId  = params.get('roomId');
-const owner   = params.get('owner');
-const repo    = params.get('repo');
-const type    = params.get('type');
+const params = new URLSearchParams(window.location.search);
+const roomId = params.get("roomId");
+const owner = params.get("owner");
+const repo = params.get("repo");
+const type = params.get("type");
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const messagesContainer = document.getElementById('messages-container');
-const messageInput      = document.getElementById('message-input');
-const sendBtn           = document.getElementById('send-btn');
-const roomTitle         = document.getElementById('room-title');
-const onlineCountEl     = document.getElementById('online-count');
-const errorDisplay      = document.getElementById('error-display');
+const messagesContainer = document.getElementById("messages-container");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const roomTitle = document.getElementById("room-title");
+const onlineCountEl = document.getElementById("online-count");
+const errorDisplay = document.getElementById("error-display");
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let socket      = null;
+let socket = null;
 let isConnected = false;
 
 // ── Clerk ─────────────────────────────────────────────────────────────────────
-const clerk = createClerkClient({ publishableKey: PUBLISHABLE_KEY });
+const clerk = new Clerk(PUBLISHABLE_KEY);
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function escapeHtml(text) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
@@ -44,7 +44,7 @@ function showError(msg) {
 }
 
 function clearError() {
-  errorDisplay.innerHTML = '';
+  errorDisplay.innerHTML = "";
 }
 
 function updateOnlineCount(count) {
@@ -52,21 +52,24 @@ function updateOnlineCount(count) {
 }
 
 function updateRoomTitle() {
-  const label = type === 'pr' ? 'PR' : type === 'issue' ? 'Issue' : 'Repo';
+  const label = type === "pr" ? "PR" : type === "issue" ? "Issue" : "Repo";
   roomTitle.textContent = `${label}: ${owner}/${repo}`;
 }
 
 // ── Message UI ────────────────────────────────────────────────────────────────
 function addMessageToUI(message) {
   // Clear placeholder if present
-  const placeholder = messagesContainer.querySelector('.status-message.empty');
+  const placeholder = messagesContainer.querySelector(".status-message.empty");
   if (placeholder) placeholder.remove();
 
-  const el        = document.createElement('div');
-  el.className    = 'message';
+  const el = document.createElement("div");
+  el.className = "message";
   const timestamp = new Date(message.created_at);
-  const timeStr   = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const letter    = message.username.charAt(0).toUpperCase();
+  const timeStr = timestamp.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const letter = message.username.charAt(0).toUpperCase();
 
   el.innerHTML = `
     <div class="message-avatar" title="${escapeHtml(message.username)}">${letter}</div>
@@ -84,19 +87,19 @@ function addMessageToUI(message) {
 }
 
 function addStatusMessage(text) {
-  const el      = document.createElement('div');
-  el.className  = 'status-message';
+  const el = document.createElement("div");
+  el.className = "status-message";
   el.textContent = text;
   messagesContainer.appendChild(el);
   scrollToBottom();
 }
 
 function showTypingIndicator(username) {
-  const existing = messagesContainer.querySelector('.typing-indicator');
+  const existing = messagesContainer.querySelector(".typing-indicator");
   if (existing) existing.remove();
 
-  const el     = document.createElement('div');
-  el.className = 'typing-indicator';
+  const el = document.createElement("div");
+  el.className = "typing-indicator";
   el.innerHTML = `
     <span>${escapeHtml(username)} is typing</span>
     <div class="typing-dot"></div>
@@ -106,7 +109,9 @@ function showTypingIndicator(username) {
 
   messagesContainer.appendChild(el);
   scrollToBottom();
-  setTimeout(() => { if (el.parentElement) el.remove(); }, 3000);
+  setTimeout(() => {
+    if (el.parentElement) el.remove();
+  }, 3000);
 }
 
 // ── Auth gate UI ──────────────────────────────────────────────────────────────
@@ -156,61 +161,61 @@ async function connectSocket() {
     reconnectionAttempts: 5,
   });
 
-  socket.on('connect', () => {
+  socket.on("connect", () => {
     isConnected = true;
-    socket.emit('join_room', { room_id: roomId });
+    socket.emit("join_room", { room_id: roomId });
   });
 
-  socket.on('disconnect', () => {
+  socket.on("disconnect", () => {
     isConnected = false;
     sendBtn.disabled = true;
     updateOnlineCount(0);
   });
 
-  socket.on('connect_error', () => {
-    showError('Connection error. Retrying...');
+  socket.on("connect_error", () => {
+    showError("Connection error. Retrying...");
   });
 
-  socket.on('room_joined', (data) => {
+  socket.on("room_joined", (data) => {
     clearError();
-    messagesContainer.innerHTML = '';
+    messagesContainer.innerHTML = "";
     sendBtn.disabled = false;
 
     if (data.messages?.length > 0) {
       data.messages.forEach((msg) => addMessageToUI(msg));
     } else {
-      const empty     = document.createElement('div');
-      empty.className = 'status-message empty';
-      empty.textContent = 'No messages yet. Start the conversation!';
+      const empty = document.createElement("div");
+      empty.className = "status-message empty";
+      empty.textContent = "No messages yet. Start the conversation!";
       messagesContainer.appendChild(empty);
     }
 
-    socket.emit('get_online_users');
+    socket.emit("get_online_users");
   });
 
-  socket.on('error', (data) => {
-    showError(data.message || 'An error occurred');
+  socket.on("error", (data) => {
+    showError(data.message || "An error occurred");
   });
 
-  socket.on('receive_message', (message) => {
+  socket.on("receive_message", (message) => {
     addMessageToUI(message);
   });
 
-  socket.on('user_joined', (data) => {
+  socket.on("user_joined", (data) => {
     updateOnlineCount(data.user_count || 0);
     addStatusMessage(`${data.username} joined the chat`);
   });
 
-  socket.on('user_left', (data) => {
+  socket.on("user_left", (data) => {
     updateOnlineCount(data.user_count || 0);
     addStatusMessage(`${data.username} left the chat`);
   });
 
-  socket.on('user_typing', (data) => {
+  socket.on("user_typing", (data) => {
     showTypingIndicator(data.username);
   });
 
-  socket.on('online_users', (data) => {
+  socket.on("online_users", (data) => {
     updateOnlineCount(data.count || 0);
   });
 }
@@ -220,27 +225,29 @@ async function sendMessage() {
   const content = messageInput.value.trim();
   if (!content || !socket || !isConnected) return;
 
-  messageInput.value = '';
-  messageInput.style.height = 'auto';
+  messageInput.value = "";
+  messageInput.style.height = "auto";
   sendBtn.disabled = true;
-  socket.emit('send_message', { content });
-  setTimeout(() => { if (isConnected) sendBtn.disabled = false; }, 100);
+  socket.emit("send_message", { content });
+  setTimeout(() => {
+    if (isConnected) sendBtn.disabled = false;
+  }, 100);
 }
 
-messageInput.addEventListener('input', () => {
-  messageInput.style.height = 'auto';
-  messageInput.style.height = Math.min(messageInput.scrollHeight, 80) + 'px';
-  if (socket && isConnected) socket.emit('typing', {});
+messageInput.addEventListener("input", () => {
+  messageInput.style.height = "auto";
+  messageInput.style.height = Math.min(messageInput.scrollHeight, 80) + "px";
+  if (socket && isConnected) socket.emit("typing", {});
 });
 
-messageInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+messageInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
   }
 });
 
-sendBtn.addEventListener('click', sendMessage);
+sendBtn.addEventListener("click", sendMessage);
 
 // ── Render (called on auth state changes) ─────────────────────────────────────
 async function render() {
@@ -264,7 +271,7 @@ clerk
     afterSignOutUrl: SIDEBAR_URL,
     signInForceRedirectUrl: SIDEBAR_URL,
     signUpForceRedirectUrl: SIDEBAR_URL,
-    allowedRedirectProtocols: ['chrome-extension:'],
+    allowedRedirectProtocols: ["chrome-extension:"],
   })
   .then(() => {
     clerk.addListener(render); // re-render on sign-in / sign-out

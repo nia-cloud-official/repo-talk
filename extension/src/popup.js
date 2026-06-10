@@ -1,8 +1,5 @@
-// Popup — reads our own JWT from storage. No Clerk needed here.
-
 const BACKEND_URL = process.env.BACKEND_URL;
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
 const loadingEl = document.getElementById("loading");
 const signedOutEl = document.getElementById("signed-out");
 const signedInEl = document.getElementById("signed-in");
@@ -20,9 +17,9 @@ function show(el) {
 }
 
 async function getToken() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(["token"], (r) => resolve(r.token || null));
-  });
+  return new Promise((r) =>
+    chrome.storage.local.get(["token"], (s) => r(s.token || null)),
+  );
 }
 
 async function fetchUser(token) {
@@ -39,7 +36,6 @@ async function fetchUser(token) {
 async function render() {
   show(loadingEl);
   const token = await getToken();
-
   if (!token) {
     show(signedOutEl);
     return;
@@ -47,8 +43,7 @@ async function render() {
 
   const user = await fetchUser(token);
   if (!user) {
-    // Token expired or invalid — clear it
-    await chrome.storage.local.remove(["token"]);
+    await chrome.storage.local.remove(["token", "user"]);
     show(signedOutEl);
     return;
   }
@@ -59,20 +54,25 @@ async function render() {
   show(signedInEl);
 }
 
-// ── Events ────────────────────────────────────────────────────────────────────
-signInBtn?.addEventListener("click", () => {
-  chrome.tabs.create({ url: `${BACKEND_URL}/auth/start` });
+signInBtn?.addEventListener("click", async () => {
+  show(loadingEl);
+  const result = await chrome.runtime.sendMessage({ action: "login" });
+  if (result?.success) {
+    render();
+  } else {
+    console.error("Login failed:", result?.error);
+    show(signedOutEl);
+  }
 });
 
 signOutBtn?.addEventListener("click", async () => {
-  await chrome.storage.local.remove(["token"]);
+  await chrome.storage.local.remove(["token", "user"]);
   show(signedOutEl);
 });
 
-// Re-render when the background writes the token after auth completes
+// Re-render if background updates the token (e.g. after login)
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && "token" in changes) render();
 });
 
-// Init
 render();

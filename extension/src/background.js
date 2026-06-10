@@ -1,44 +1,78 @@
-// Background service worker — watches for the auth tab to land on /auth/done,
-// reads the short-lived cookie the server page sets, then stores our own JWT.
-
 const BACKEND_URL = process.env.BACKEND_URL;
+const CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY;
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status !== "complete") return;
-  if (!tab.url?.startsWith(`${BACKEND_URL}/auth/done`)) return;
+async function login() {
+  if (!CLERK_PUBLISHABLE_KEY) {
+    return { success: false, error: "CLERK_PUBLISHABLE_KEY not configured" };
+  }
 
-  // Give the page's JS ~2 s to run and set the cookie before we read it
-  setTimeout(async () => {
-    const cookie = await chrome.cookies.get({
-      url: BACKEND_URL,
-      name: "repo_talk_token",
+  try {
+    // Extract the frontend API URL from the publishable key
+    const frontendApiUrl = CLERK_PUBLISHABLE_KEY.replace('pk_', '').replace('live_', '').replace('test_', '');
+    
+    // Use Clerk's standard sign-in page
+    const redirectUrl = chrome.identity.getRedirectURL();
+    const authUrl = `https://clerk.${frontendApiUrl}/v1/client?after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
+
+    const responseUrl = await chrome.identity.launchWebAuthFlow({
+      url: authUrl,
+      interactive: true,
     });
 
-    if (cookie?.value) {
-      await chrome.storage.local.set({ token: cookie.value });
-      // Clean up the cookie so it isn't left lying around
-      chrome.cookies.remove({ url: BACKEND_URL, name: "repo_talk_token" });
-      chrome.tabs.remove(tabId);
+    if (!responseUrl) {
+      throw new Error("Authentication cancelled");
     }
-  }, 2000);
-});
+
+    // Extract the token from the URL - Clerk returns it in various ways
+    const url = new URL(responseUrl);
+    const token = url.searchParams.get("__clerk_jwt") || url.searchParams.get("token") || url.hash.slice(1);
+
+    if (!token) {
+      throw new Error("No token received from Clerk");
+    }
+
+    // Verify the token with our backend and get our app token
+    const res = await fetch(`${BACKEND_URL}/auth/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${res.status}`);
+    }
+
+    const { token: appToken, user } = await res.json();
+    await chrome.storage.local.set({ token: appToken, user });
+    return { success: true };
+  } catch (err) {
+    console.error("Login failed:", err.message);
+    return { success: false, error: err.message };
+  }
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "login") {
+    login().then(sendResponse);
+    return true; // keep channel open for async response
+  }
+
   if (request.action === "getToken") {
-    chrome.storage.local.get(["token"], (result) => {
-      sendResponse({ token: result.token || null });
-    });
+    chrome.storage.local.get(["token"], (r) =>
+      sendResponse({ token: r.token || null }),
+    );
     return true;
   }
 
   if (request.action === "logout") {
-    chrome.storage.local.remove(["token"], () => {
-      sendResponse({ success: true });
-    });
+    chrome.storage.local.remove(["token", "user"], () =>
+      sendResponse({ success: true }),
+    );
     return true;
   }
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("Repo Talk - GitHub Chat extension installed");
+  console.log("Repo Talk installed");
 });

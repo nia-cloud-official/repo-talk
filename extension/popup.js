@@ -16,9 +16,9 @@
     el.style.display = "block";
   }
   async function getToken() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(["token"], (r) => resolve(r.token || null));
-    });
+    return new Promise(
+      (r) => chrome.storage.local.get(["token"], (s) => r(s.token || null))
+    );
   }
   async function fetchUser(token) {
     try {
@@ -39,7 +39,7 @@
     }
     const user = await fetchUser(token);
     if (!user) {
-      await chrome.storage.local.remove(["token"]);
+      await chrome.storage.local.remove(["token", "user"]);
       show(signedOutEl);
       return;
     }
@@ -48,11 +48,18 @@
     userAvatar.src = user.avatar_url || "";
     show(signedInEl);
   }
-  signInBtn?.addEventListener("click", () => {
-    chrome.tabs.create({ url: `${BACKEND_URL}/auth/start` });
+  signInBtn?.addEventListener("click", async () => {
+    show(loadingEl);
+    const result = await chrome.runtime.sendMessage({ action: "login" });
+    if (result?.success) {
+      render();
+    } else {
+      console.error("Login failed:", result?.error);
+      show(signedOutEl);
+    }
   });
   signOutBtn?.addEventListener("click", async () => {
-    await chrome.storage.local.remove(["token"]);
+    await chrome.storage.local.remove(["token", "user"]);
     show(signedOutEl);
   });
   chrome.storage.onChanged.addListener((changes, area) => {

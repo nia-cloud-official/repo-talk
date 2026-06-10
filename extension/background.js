@@ -1,37 +1,65 @@
 (() => {
   // src/background.js
   var BACKEND_URL = "http://localhost:3000";
-  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (changeInfo.status !== "complete") return;
-    if (!tab.url?.startsWith(`${BACKEND_URL}/auth/done`)) return;
-    setTimeout(async () => {
-      const cookie = await chrome.cookies.get({
-        url: BACKEND_URL,
-        name: "repo_talk_token"
+  var CLERK_PUBLISHABLE_KEY = "pk_test_aW52aXRpbmctZ2xvd3dvcm0tMjMuY2xlcmsuYWNjb3VudHMuZGV2JA";
+  async function login() {
+    if (!CLERK_PUBLISHABLE_KEY) {
+      return { success: false, error: "CLERK_PUBLISHABLE_KEY not configured" };
+    }
+    try {
+      const redirectUrl = chrome.identity.getRedirectURL();
+      const authUrl = `https://accounts.clerk.com/v1/client?__clerk_api_url=${encodeURIComponent(CLERK_PUBLISHABLE_KEY)}&after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
+      const responseUrl = await chrome.identity.launchWebAuthFlow({
+        url: authUrl,
+        interactive: true
       });
-      if (cookie?.value) {
-        await chrome.storage.local.set({ token: cookie.value });
-        chrome.cookies.remove({ url: BACKEND_URL, name: "repo_talk_token" });
-        chrome.tabs.remove(tabId);
+      if (!responseUrl) {
+        throw new Error("Authentication cancelled");
       }
-    }, 2e3);
-  });
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "getToken") {
-      chrome.storage.local.get(["token"], (result) => {
-        sendResponse({ token: result.token || null });
+      const url = new URL(responseUrl);
+      const token = url.searchParams.get("__clerk_jwt") || url.searchParams.get("token");
+      if (!token) {
+        throw new Error("No token received from Clerk");
+      }
+      const res = await fetch(`${BACKEND_URL}/auth/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+      const { token: appToken, user } = await res.json();
+      await chrome.storage.local.set({ token: appToken, user });
+      return { success: true };
+    } catch (err) {
+      console.error("Login failed:", err.message);
+      return { success: false, error: err.message };
+    }
+  }
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "login") {
+      login().then(sendResponse);
+      return true;
+    }
+    if (request.action === "getToken") {
+      chrome.storage.local.get(
+        ["token"],
+        (r) => sendResponse({ token: r.token || null })
+      );
       return true;
     }
     if (request.action === "logout") {
-      chrome.storage.local.remove(["token"], () => {
-        sendResponse({ success: true });
-      });
+      chrome.storage.local.remove(
+        ["token", "user"],
+        () => sendResponse({ success: true })
+      );
       return true;
     }
   });
   chrome.runtime.onInstalled.addListener(() => {
-    console.log("Repo Talk - GitHub Chat extension installed");
+    console.log("Repo Talk installed");
   });
 })();
 //# sourceMappingURL=background.js.map

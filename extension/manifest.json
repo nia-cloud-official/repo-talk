@@ -8,7 +8,7 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": ["activeTab", "scripting", "storage", "cookies"],
+  "permissions": ["activeTab", "scripting", "storage", "identity"],
   "host_permissions": [
     "https://github.com/*",
     "https://www.github.com/*",

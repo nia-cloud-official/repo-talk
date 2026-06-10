@@ -14,6 +14,9 @@ const define = {
   "process.env.BACKEND_URL": JSON.stringify(
     process.env.BACKEND_URL || "http://localhost:3000",
   ),
+  "process.env.CLERK_PUBLISHABLE_KEY": JSON.stringify(
+    process.env.CLERK_PUBLISHABLE_KEY || "",
+  ),
 };
 
 const watch = process.argv.includes("--watch");

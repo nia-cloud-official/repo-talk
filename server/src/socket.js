@@ -1,6 +1,6 @@
-import db from '../db.js';
-import { socketAuthMiddleware, verifyToken } from '../middleware/auth.js';
-import { sanitizeMessage, sanitizeRoomId } from '../utils/sanitize.js';
+import db from './db.js';
+import { socketAuthMiddleware, verifyToken } from './middleware/auth.js';
+import { sanitizeMessage, sanitizeRoomId } from './utils/sanitize.js';
 
 const RATE_LIMIT_MESSAGES = 10; // Max messages per minute
 const messageCountMap = new Map();

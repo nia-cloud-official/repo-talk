@@ -1,0 +1,5 @@
+Repo Talk GitHub Collaboration Live Chat Extension
+Version: 1.0.0
+Built: Wed Jun 10 07:36:49 UTC 2026
+Node.js Required: 16.0.0+
+Chrome Required: 90+

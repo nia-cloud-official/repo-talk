@@ -14,7 +14,8 @@
     "https://www.github.com/*",
     "http://localhost:*/*",
     "https://*.clerk.accounts.dev/*",
-    "https://*.lcl.dev/*"
+    "https://*.lcl.dev/*",
+    "https://cdn.jsdelivr.net/*"
   ],
   "background": {
     "service_worker": "background.js"

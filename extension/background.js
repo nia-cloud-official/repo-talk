@@ -7,8 +7,10 @@
       return { success: false, error: "CLERK_PUBLISHABLE_KEY not configured" };
     }
     try {
+      const keyParts = CLERK_PUBLISHABLE_KEY.split(".");
+      const domain = keyParts[1];
       const redirectUrl = chrome.identity.getRedirectURL();
-      const authUrl = `https://accounts.clerk.com/v1/client?__clerk_api_url=${encodeURIComponent(CLERK_PUBLISHABLE_KEY)}&after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
+      const authUrl = `https://accounts.${domain}/v1/client?after_sign_in_url=${encodeURIComponent(redirectUrl)}&after_sign_up_url=${encodeURIComponent(redirectUrl)}`;
       const responseUrl = await chrome.identity.launchWebAuthFlow({
         url: authUrl,
         interactive: true
@@ -17,7 +19,7 @@
         throw new Error("Authentication cancelled");
       }
       const url = new URL(responseUrl);
-      const token = url.searchParams.get("__clerk_jwt") || url.searchParams.get("token");
+      const token = url.searchParams.get("__clerk_jwt") || url.searchParams.get("token") || url.hash.slice(1);
       if (!token) {
         throw new Error("No token received from Clerk");
       }

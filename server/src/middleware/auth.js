@@ -1,55 +1,78 @@
-import jwt from 'jsonwebtoken';
+import { createClerkClient, verifyToken } from "@clerk/backend";
+import db from "../db.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret_key_change_in_production';
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+});
 
-export function verifyToken(token) {
-  try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch (error) {
-    return null;
+// Fetch Clerk user info and upsert into local DB, returns our internal user record
+async function getOrSyncUser(clerkUserId) {
+  let user = db
+    .prepare("SELECT * FROM users WHERE clerk_id = ?")
+    .get(clerkUserId);
+
+  if (!user) {
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+    const githubAccount = clerkUser.externalAccounts?.find(
+      (a) => a.provider === "oauth_github",
+    );
+    const username =
+      githubAccount?.username ||
+      clerkUser.username ||
+      `user_${clerkUserId.slice(-8)}`;
+    const avatarUrl = clerkUser.imageUrl || null;
+
+    const stmt = db.prepare(`
+      INSERT INTO users (clerk_id, username, avatar_url)
+      VALUES (?, ?, ?)
+      ON CONFLICT(clerk_id) DO UPDATE SET
+        username = excluded.username,
+        avatar_url = excluded.avatar_url,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING id, clerk_id, username, avatar_url
+    `);
+
+    user = stmt.get(clerkUserId, username, avatarUrl);
   }
+
+  return user;
 }
 
-export function generateToken(user) {
-  return jwt.sign(
-    {
-      id: user.id,
-      github_id: user.github_id,
-      username: user.username,
-    },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-}
-
-export function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
+export async function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    return res.status(401).json({ error: "No token provided" });
   }
 
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    return res.status(401).json({ error: 'Invalid token' });
+  try {
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const user = await getOrSyncUser(payload.sub);
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("Auth error:", error.message);
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
-
-  req.user = decoded;
-  next();
 }
 
-export function socketAuthMiddleware(socket, next) {
+export async function socketAuthMiddleware(socket, next) {
   const token = socket.handshake.auth.token;
 
   if (!token) {
-    return next(new Error('No token provided'));
+    return next(new Error("No token provided"));
   }
 
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    return next(new Error('Invalid token'));
+  try {
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const user = await getOrSyncUser(payload.sub);
+    socket.user = user;
+    next();
+  } catch (error) {
+    return next(new Error("Invalid or expired token"));
   }
-
-  socket.user = decoded;
-  next();
 }

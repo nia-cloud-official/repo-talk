@@ -8,8 +8,12 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js"
   },
-  "keywords": ["github", "chat", "extension"],
-  "author": "",
+  "keywords": [
+    "github",
+    "chat",
+    "extension"
+  ],
+  "author": "Milton Vafana <miltonhyndrex@gmail.com> (https://github.com/nia-cloud-official)",
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
@@ -20,7 +24,8 @@
     "cors": "^2.8.5",
     "better-sqlite3": "^9.2.2",
     "express-jwt": "^8.4.1",
-    "dompurify": "^3.0.8"
+    "dompurify": "^3.0.8",
+    "@clerk/backend": "^1.0.0"
   },
   "devDependencies": {}
 }

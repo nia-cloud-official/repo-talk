@@ -8,27 +8,20 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "webRequestAuthProvider",
-    "identity"
-  ],
+  "permissions": ["activeTab", "scripting", "storage", "cookies"],
   "host_permissions": [
     "https://github.com/*",
     "https://www.github.com/*",
-    "http://localhost:*/*"
+    "http://localhost:*/*",
+    "https://*.clerk.accounts.dev/*",
+    "https://*.lcl.dev/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://github.com/*",
-        "https://www.github.com/*"
-      ],
+      "matches": ["https://github.com/*", "https://www.github.com/*"],
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": false
@@ -36,11 +29,11 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "GitHub Collaboration Chat"
+    "default_title": "Repo Talk - GitHub Chat"
   },
   "web_accessible_resources": [
     {
-      "resources": ["inject.js", "sidebar.html"],
+      "resources": ["sidebar.html"],
       "matches": ["https://github.com/*", "https://www.github.com/*"]
     }
   ]

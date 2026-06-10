@@ -1,58 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GitHub Chat</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="popup-container">
-    <div class="popup-header">
-      <h1>GitHub Chat</h1>
-      <p class="subtitle">Real-time collaboration on GitHub</p>
-    </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Repo Talk</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div class="popup-container">
+            <div class="popup-header">
+                <h1>Repo Talk</h1>
+                <p class="subtitle">Real-time collaboration on GitHub</p>
+            </div>
 
-    <div id="auth-section" class="popup-section" style="display: none;">
-      <p class="description">Log in with your GitHub account to start chatting on repositories, PRs, and issues.</p>
-      <button id="login-btn" class="btn btn-primary">
-        <span class="github-icon">🐙</span>
-        Login with GitHub
-      </button>
-      <p class="footer-text">We never store your GitHub token. Only your username and avatar.</p>
-    </div>
+            <!-- Loading -->
+            <div id="loading" class="popup-section loading-section">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
 
-    <div id="user-section" class="popup-section" style="display: none;">
-      <div class="user-info">
-        <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
-        <div class="user-details">
-          <p class="user-name" id="user-name"></p>
-          <p class="user-handle" id="user-handle"></p>
+            <!-- Signed out -->
+            <div id="signed-out" class="popup-section" style="display: none">
+                <p class="description">
+                    Sign in with GitHub to start chatting on any repository, PR,
+                    or issue.
+                </p>
+                <button id="sign-in-btn" class="btn btn-primary">
+                    <span class="github-icon">🐙</span>
+                    Sign in with GitHub
+                </button>
+                <p class="footer-text">
+                    Powered by Clerk — your GitHub token is never stored by us.
+                </p>
+            </div>
+
+            <!-- Signed in -->
+            <div id="signed-in" class="popup-section" style="display: none">
+                <div class="user-info">
+                    <img
+                        id="user-avatar"
+                        class="user-avatar"
+                        src=""
+                        alt="Avatar"
+                    />
+                    <div class="user-details">
+                        <p class="user-name" id="user-name"></p>
+                        <p class="user-handle" id="user-handle"></p>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button id="sign-out-btn" class="btn btn-secondary">
+                        Sign out
+                    </button>
+                </div>
+                <div class="status">
+                    <p>
+                        Chat sidebar is active on any GitHub repo, PR, or issue.
+                    </p>
+                </div>
+            </div>
         </div>
-      </div>
 
-      <div class="actions">
-        <button id="logout-btn" class="btn btn-secondary">Logout</button>
-      </div>
-
-      <div class="status">
-        <p id="status-text"></p>
-      </div>
-    </div>
-
-    <div id="loading-section" class="popup-section" style="display: none;">
-      <div class="spinner"></div>
-      <p>Loading...</p>
-    </div>
-
-    <div id="error-section" class="popup-section" style="display: none;">
-      <div class="error-box">
-        <p id="error-text"></p>
-      </div>
-      <button id="error-retry-btn" class="btn btn-secondary">Retry</button>
-    </div>
-  </div>
-
-  <script src="popup.js"></script>
-</body>
+        <script src="popup.js"></script>
+    </body>
 </html>

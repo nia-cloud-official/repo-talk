@@ -1,4 +1,4 @@
-// Parse GitHub URL to extract context
+// Parse the current GitHub URL into chat room context
 function parseGitHubContext() {
   const url = window.location.pathname;
   const match = url.match(/\/([^/]+)\/([^/]+)/);
@@ -8,12 +8,25 @@ function parseGitHubContext() {
   const owner = match[1];
   const repo = match[2];
 
-  // Check if it's a PR
-  if (url.includes('/pull/')) {
+  // Skip GitHub's own pages (homepage, settings, etc.)
+  if (
+    [
+      "login",
+      "settings",
+      "marketplace",
+      "explore",
+      "orgs",
+      "organizations",
+    ].includes(owner)
+  ) {
+    return null;
+  }
+
+  if (url.includes("/pull/")) {
     const prMatch = url.match(/\/pull\/(\d+)/);
     if (prMatch) {
       return {
-        type: 'pr',
+        type: "pr",
         owner,
         repo,
         number: prMatch[1],
@@ -22,12 +35,11 @@ function parseGitHubContext() {
     }
   }
 
-  // Check if it's an issue
-  if (url.includes('/issues/')) {
+  if (url.includes("/issues/")) {
     const issueMatch = url.match(/\/issues\/(\d+)/);
     if (issueMatch) {
       return {
-        type: 'issue',
+        type: "issue",
         owner,
         repo,
         number: issueMatch[1],
@@ -36,59 +48,31 @@ function parseGitHubContext() {
     }
   }
 
-  // It's a repo
-  return {
-    type: 'repo',
-    owner,
-    repo,
-    roomId: `${owner}/${repo}`,
-  };
+  return { type: "repo", owner, repo, roomId: `${owner}/${repo}` };
 }
 
-// Get token from storage
-function getToken() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['token'], (result) => {
-      resolve(result.token);
-    });
-  });
-}
-
-// Get user from storage
-function getUser() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['user'], (result) => {
-      resolve(result.user);
-    });
-  });
-}
-
-// Create and inject chat iframe
-async function injectChatSidebar() {
+// Inject (or refresh) the chat sidebar iframe
+function injectChatSidebar() {
   const context = parseGitHubContext();
-  
   if (!context) return;
 
-  const token = await getToken();
-  const user = await getUser();
+  // Already injected for this page — skip
+  if (document.getElementById("github-chat-container")) return;
 
-  if (!token || !user) {
-    console.log('Not authenticated, skipping chat injection');
-    return;
-  }
+  const container = document.createElement("div");
+  container.id = "github-chat-container";
 
-  // Check if already injected
-  if (document.getElementById('github-chat-container')) {
-    return;
-  }
+  const params = new URLSearchParams({
+    roomId: context.roomId,
+    owner: context.owner,
+    repo: context.repo,
+    type: context.type,
+  });
 
-  // Create container
-  const container = document.createElement('div');
-  container.id = 'github-chat-container';
   container.innerHTML = `
-    <iframe 
+    <iframe
       id="github-chat-iframe"
-      src="${chrome.runtime.getURL('sidebar.html')}?roomId=${encodeURIComponent(context.roomId)}&owner=${encodeURIComponent(context.owner)}&repo=${encodeURIComponent(context.repo)}&type=${context.type}"
+      src="${chrome.runtime.getURL("sidebar.html")}?${params}"
       style="
         position: fixed;
         right: 0;
@@ -106,19 +90,26 @@ async function injectChatSidebar() {
   document.body.appendChild(container);
 }
 
-// Watch for URL changes (SPA navigation)
+// Remove sidebar (called on navigation away from a repo page)
+function removeSidebar() {
+  const el = document.getElementById("github-chat-container");
+  if (el) el.remove();
+}
+
+// SPA navigation detection
 let lastUrl = location.href;
 
 new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
+    removeSidebar();
     setTimeout(injectChatSidebar, 500);
   }
 }).observe(document, { subtree: true, childList: true });
 
 // Initial injection
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', injectChatSidebar);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", injectChatSidebar);
 } else {
   injectChatSidebar();
 }

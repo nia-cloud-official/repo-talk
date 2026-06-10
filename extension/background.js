@@ -1,6 +1,6 @@
 (() => {
   // src/background.js
-  var BACKEND_URL = "http://localhost:3000";
+  var BACKEND_URL = "https://repo-talk.onrender.com";
   var CLERK_PUBLISHABLE_KEY = "pk_test_aW52aXRpbmctZ2xvd3dvcm0tMjMuY2xlcmsuYWNjb3VudHMuZGV2JA";
   async function login() {
     if (!CLERK_PUBLISHABLE_KEY) {

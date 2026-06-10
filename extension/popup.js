@@ -1,6 +1,6 @@
 (() => {
   // src/popup.js
-  var BACKEND_URL = "http://localhost:3000";
+  var BACKEND_URL = "https://repo-talk.onrender.com";
   var loadingEl = document.getElementById("loading");
   var signedOutEl = document.getElementById("signed-out");
   var signedInEl = document.getElementById("signed-in");

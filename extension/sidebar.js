@@ -3407,7 +3407,7 @@
   });
 
   // src/sidebar.js
-  var BACKEND_URL = "http://localhost:3000";
+  var BACKEND_URL = "https://repo-talk.onrender.com";
   var params = new URLSearchParams(window.location.search);
   var roomId = params.get("roomId");
   var owner = params.get("owner");

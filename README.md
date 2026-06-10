@@ -44,6 +44,8 @@ A real-time chat system for GitHub repositories, pull requests, and issues. Inje
 
 Issues and pull requests welcome!
 
+Please read [IAMSORRY.md](./IAMSORRY.md) for a small apology.
+
 ## License
 
 MIT License - Feel free to use and modify

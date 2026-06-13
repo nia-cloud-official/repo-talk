@@ -177,6 +177,74 @@ export function initializeSocket(io) {
       });
     });
 
+    // Add reaction to message
+    socket.on("add_reaction", (data) => {
+      const { message_id, emoji } = data;
+      const roomId = socket.currentRoom;
+
+      if (!roomId) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      if (!message_id || !emoji) {
+        socket.emit("error", { message: "Invalid reaction data" });
+        return;
+      }
+
+      try {
+        // Check if message exists in current room
+        const message = db
+          .prepare("SELECT * FROM messages WHERE id = ? AND room_id = ?")
+          .get(message_id, roomId);
+
+        if (!message) {
+          socket.emit("error", { message: "Message not found" });
+          return;
+        }
+
+        // Upsert reaction (add if not exists, remove if exists)
+        const existingReaction = db
+          .prepare(
+            "SELECT * FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?"
+          )
+          .get(message_id, socket.user.id, emoji);
+
+        if (existingReaction) {
+          // Remove reaction
+          db.prepare(
+            "DELETE FROM message_reactions WHERE id = ?"
+          ).run(existingReaction.id);
+        } else {
+          // Add reaction
+          db.prepare(
+            "INSERT INTO message_reactions (message_id, user_id, emoji) VALUES (?, ?, ?)"
+          ).run(message_id, socket.user.id, emoji);
+        }
+
+        // Get all reactions for this message
+        const reactions = db
+          .prepare(
+            `
+            SELECT mr.emoji, u.username
+            FROM message_reactions mr
+            JOIN users u ON mr.user_id = u.id
+            WHERE mr.message_id = ?
+          `
+          )
+          .all(message_id);
+
+        // Broadcast to room
+        io.to(roomId).emit("reaction_added", {
+          message_id,
+          reactions,
+        });
+      } catch (error) {
+        console.error("Add reaction error:", error);
+        socket.emit("error", { message: "Failed to add reaction" });
+      }
+    });
+
     // Leave room
     socket.on("leave_room", () => {
       const roomId = socket.currentRoom;

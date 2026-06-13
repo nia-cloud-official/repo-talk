@@ -3421,7 +3421,6 @@
   var errorDisplay = document.getElementById("error-display");
   var minimizeBtn = document.getElementById("minimize-btn");
   var inputArea = document.getElementById("input-area");
-  var floatingButton = document.getElementById("floating-button");
   var sidebarHeader = document.querySelector(".sidebar-header");
   var socket = null;
   var isConnected = false;
@@ -3455,17 +3454,14 @@
     isMinimized = !isMinimized;
     if (isMinimized) {
       document.body.classList.add("minimized");
-      floatingButton.style.display = "flex";
-      chrome.runtime.sendMessage({ action: "sidebar-minimized" });
+      window.parent.postMessage({ type: "sidebar-minimized" }, "*");
     } else {
       document.body.classList.remove("minimized");
-      floatingButton.style.display = "none";
-      chrome.runtime.sendMessage({ action: "sidebar-maximized" });
+      window.parent.postMessage({ type: "sidebar-maximized" }, "*");
       scrollToBottom();
     }
   }
   minimizeBtn.addEventListener("click", toggleMinimize);
-  floatingButton.addEventListener("click", toggleMinimize);
   function addMessageToUI(msg) {
     messagesContainer.querySelector(".status-message.empty")?.remove();
     const el = document.createElement("div");
@@ -3568,9 +3564,14 @@
   }
   function getToken() {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: "getToken" }, (response) => {
-        resolve(response?.token || null);
-      });
+      try {
+        chrome.runtime.sendMessage({ action: "getToken" }, (response) => {
+          resolve(response?.token || null);
+        });
+      } catch (e) {
+        console.error("Extension context invalidated:", e);
+        resolve(null);
+      }
     });
   }
   function getCurrentUser() {

@@ -21,7 +21,6 @@ const onlineCountEl = document.getElementById("online-count");
 const errorDisplay = document.getElementById("error-display");
 const minimizeBtn = document.getElementById("minimize-btn");
 const inputArea = document.getElementById("input-area");
-const floatingButton = document.getElementById("floating-button");
 const sidebarHeader = document.querySelector(".sidebar-header");
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -68,18 +67,15 @@ function toggleMinimize() {
   
   if (isMinimized) {
     document.body.classList.add("minimized");
-    floatingButton.style.display = "flex";
-    chrome.runtime.sendMessage({ action: "sidebar-minimized" });
+    window.parent.postMessage({ type: "sidebar-minimized" }, "*");
   } else {
     document.body.classList.remove("minimized");
-    floatingButton.style.display = "none";
-    chrome.runtime.sendMessage({ action: "sidebar-maximized" });
+    window.parent.postMessage({ type: "sidebar-maximized" }, "*");
     scrollToBottom();
   }
 }
 
 minimizeBtn.addEventListener("click", toggleMinimize);
-floatingButton.addEventListener("click", toggleMinimize);
 
 // ── Message rendering ─────────────────────────────────────────────────────────
 function addMessageToUI(msg) {
@@ -205,9 +201,14 @@ function showNotAuthenticated() {
 // ── Token retrieval via background ────────────────────────────────────────────
 function getToken() {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ action: "getToken" }, (response) => {
-      resolve(response?.token || null);
-    });
+    try {
+      chrome.runtime.sendMessage({ action: "getToken" }, (response) => {
+        resolve(response?.token || null);
+      });
+    } catch (e) {
+      console.error("Extension context invalidated:", e);
+      resolve(null);
+    }
   });
 }
 

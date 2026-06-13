@@ -84,23 +84,70 @@ function injectChatSidebar() {
         background: #0d1117;
         box-shadow: -4px 0 20px rgba(0,0,0,0.3);
         border-radius: 12px 0 0 12px;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
       "
     ></iframe>
   `;
 
   document.body.appendChild(container);
+
+  // Also inject floating button
+  injectFloatingButton();
 }
 
-// Listen for messages from the sidebar via chrome runtime (global listener)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+function injectFloatingButton() {
+  if (document.getElementById("repo-talk-floating-button")) return;
+
+  const floatingBtn = document.createElement("div");
+  floatingBtn.id = "repo-talk-floating-button";
+  floatingBtn.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #238636;
+    box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 1000000;
+    border: 3px solid #0d1117;
+  `;
+  
+  floatingBtn.innerHTML = `<img src="${chrome.runtime.getURL("icon48.png")}" alt="Repo Talk" style="width: 32px; height: 32px; border-radius: 50%;" />`;
+  
+  floatingBtn.addEventListener("click", () => {
+    const iframe = document.getElementById("github-chat-iframe");
+    if (iframe) {
+      iframe.style.display = "block";
+      floatingBtn.style.display = "none";
+    }
+  });
+
+  document.body.appendChild(floatingBtn);
+}
+
+// Listen for messages from the sidebar via window postMessage
+window.addEventListener("message", (event) => {
+  console.log("Content script received message:", event.data.type);
   const iframe = document.getElementById("github-chat-iframe");
+  const floatingBtn = document.getElementById("repo-talk-floating-button");
+  console.log("Iframe found:", !!iframe);
+  console.log("Floating button found:", !!floatingBtn);
+  
   if (!iframe) return;
   
-  if (request.action === "sidebar-minimized") {
+  if (event.data.type === "sidebar-minimized") {
+    console.log("Hiding iframe, showing floating button");
     iframe.style.display = "none";
-  } else if (request.action === "sidebar-maximized") {
+    if (floatingBtn) floatingBtn.style.display = "flex";
+  } else if (event.data.type === "sidebar-maximized") {
+    console.log("Showing iframe, hiding floating button");
     iframe.style.display = "block";
+    if (floatingBtn) floatingBtn.style.display = "none";
   }
 });
 

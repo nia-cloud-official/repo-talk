@@ -31,7 +31,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["sidebar.html"],
+      "resources": ["sidebar.html", "icon48.png"],
       "matches": ["https://github.com/*", "https://www.github.com/*"]
     }
   ]

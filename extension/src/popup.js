@@ -54,9 +54,14 @@ async function render() {
 
   userName.textContent = user.username;
   userHandle.textContent = `@${user.username}`;
-  const avatarImg = userAvatar.querySelector("img");
+  const avatarImg = document.getElementById("user-avatar-img");
   if (avatarImg) {
     avatarImg.src = getGitHubAvatarUrl(user.username);
+    avatarImg.onerror = () => {
+      userAvatar.classList.add("fallback");
+      avatarImg.remove();
+      userAvatar.textContent = "?";
+    };
   }
   show(signedInEl);
 }
